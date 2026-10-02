@@ -1,26 +1,87 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+@custom-variant dark (&:where(.dark, .dark *));
 
-@theme inline {
+@theme {
+  --font-sans: var(--font-ibm-plex-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-ibm-plex-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-ibm-plex-mono), ui-monospace, monospace;
+
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-muted: var(--muted);
+  --color-surface: var(--surface);
+  --color-border: var(--border);
+  --color-brand: var(--brand);
+  --color-brand-foreground: var(--brand-foreground);
+  --color-record: var(--record);
+  --color-meet-bg: var(--meet-bg);
+  --color-meet-surface: var(--meet-surface);
+  --color-meet-border: var(--meet-border);
+  --color-meet-text: var(--meet-text);
+  --color-meet-muted: var(--meet-muted);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+:root {
+  --meet-bg: #111111;
+  --meet-surface: #202124;
+  --meet-border: #3c4043;
+  --meet-text: #e8eaed;
+  --meet-muted: #9aa0a6;
+  --brand: #0b8043;
+  --brand-foreground: #ffffff;
+  --record: #d93025;
+
+  --background: #f0f4f8;
+  --foreground: #1a2332;
+  --muted: #5b6777;
+  --surface: #ffffff;
+  --border: #d5dde7;
+}
+
+html,
+body {
+  min-height: 100%;
 }
 
 body {
+  margin: 0;
+  font-family: var(--font-sans);
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+}
+
+@keyframes speak-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgb(11 128 67 / 0);
+  }
+  50% {
+    box-shadow: 0 0 0 3px rgb(11 128 67 / 0.45);
+  }
+}
+
+@keyframes record-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.04);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .speak-active {
+    animation: speak-pulse 1.6s ease-in-out infinite;
+  }
+
+  .record-active {
+    animation: record-pulse 1.1s ease-in-out infinite;
+  }
+}
+
+:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
 }
