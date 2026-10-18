@@ -1,6 +1,12 @@
 # Data Model
 
-Conceptual model for MVP (local-first). Field names are illustrative TypeScript shapes.
+Prep packs persist in browser `localStorage` immediately; Postgres (Neon + Prisma) is the durable store when `DATABASE_URL` is set. See `prisma/schema.prisma` for `PracticeProfile`, `PrepPack`, `RoleDecode`, `PredictedQuestion`, interview messages, scorecards, and `CheatSheet`.
+
+Classic Meet sessions below remain local-first during migration.
+
+## Classic session (legacy localStorage)
+
+Conceptual shapes:
 
 ## Session
 

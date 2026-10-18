@@ -53,6 +53,8 @@ export type DeliveryMetrics = {
   clarityProxyScore?: number;
 };
 
+export type QuestionSource = "classic" | "prep";
+
 export type InterviewTurn = {
   id: string;
   sessionId: string;
@@ -61,6 +63,10 @@ export type InterviewTurn = {
   interviewerRole: InterviewerRole;
   questionId: string;
   questionText: string;
+  /** Coaching from predicted pack (optional). */
+  checking?: string;
+  fresherMistake?: string;
+  strongAnswer?: string;
   thinkStartedAt?: string;
   answerStartedAt?: string;
   answerEndedAt?: string;
@@ -69,6 +75,9 @@ export type InterviewTurn = {
   acknowledgmentText?: string;
   metrics?: DeliveryMetrics;
   tips?: string[];
+  /** Content/delivery score out of 10. */
+  score?: number;
+  scoreNote?: string;
   status: TurnStatus;
 };
 
@@ -82,6 +91,19 @@ export type InterviewSession = {
   status: SessionStatus;
   companyProfileId?: string;
   turnIds: string[];
+  questionSource?: QuestionSource;
+  prepPackId?: string;
+  roleTitle?: string;
+  companyName?: string;
+  /** User opted to screen-record this session (client starts capture in room). */
+  recordSession?: boolean;
+  recordingFileName?: string;
+  /** Practiced intros from prep pack (30 / 60 / 120 seconds). */
+  introScripts?: {
+    30: string;
+    60: string;
+    120: string;
+  };
 };
 
 export type SessionReport = {
@@ -91,6 +113,7 @@ export type SessionReport = {
     turnsCompleted: number;
     avgWpm?: number;
     totalFillers?: number;
+    avgScore?: number;
     sectionsCompleted: SectionId[];
   };
 };

@@ -31,7 +31,7 @@ export default function RootLayout({ children }: RootLayoutProps) {
       lang="en"
       className={`${plexSans.variable} ${plexMono.variable} h-full antialiased`}
     >
-      <body className="flex min-h-full flex-col font-sans">
+      <body className="flex min-h-full flex-col bg-meet-bg font-sans text-meet-text">
         <Providers>{children}</Providers>
       </body>
     </html>

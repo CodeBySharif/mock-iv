@@ -54,7 +54,7 @@ export function TranscriptPanel({
           </p>
         ) : null}
       </div>
-      <p className="min-h-0 flex-1 overflow-y-auto whitespace-pre-wrap text-sm leading-relaxed text-meet-text">
+      <p className="meet-scroll min-h-0 flex-1 overflow-y-auto whitespace-pre-wrap text-sm leading-relaxed text-meet-text">
         {text || placeholder}
       </p>
       <div className="mt-3 flex shrink-0 justify-end border-t border-meet-border pt-3">

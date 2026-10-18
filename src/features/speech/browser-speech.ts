@@ -41,6 +41,8 @@ type SpeechRecognitionLike = {
   continuous: boolean;
   interimResults: boolean;
   lang: string;
+  maxAlternatives?: number;
+  grammars?: unknown;
   start: () => void;
   stop: () => void;
   abort: () => void;
@@ -53,7 +55,7 @@ type SpeechRecognitionEventLike = {
   resultIndex: number;
   results: ArrayLike<{
     isFinal: boolean;
-    0: { transcript: string };
+    0: { transcript: string; confidence?: number };
   }>;
 };
 
@@ -72,10 +74,41 @@ export function isSpeechRecognitionSupported() {
   return !!getRecognitionCtor();
 }
 
+/** Normalize common tech terms the Web Speech API mishears. */
+export function normalizeTranscript(raw: string) {
+  let text = raw;
+  const replacements: Array<[RegExp, string]> = [
+    [/\bdot\s*net\b/gi, ".NET"],
+    [/\bd(?:ot)?\s*net\s*core\b/gi, ".NET Core"],
+    [/\bc\s*sharp\b/gi, "C#"],
+    [/\bc\s*plus\s*plus\b/gi, "C++"],
+    [/\bnode\s*js\b/gi, "Node.js"],
+    [/\breact\s*js\b/gi, "React"],
+    [/\bnext\s*js\b/gi, "Next.js"],
+    [/\btype\s*script\b/gi, "TypeScript"],
+    [/\bjava\s*script\b/gi, "JavaScript"],
+    [/\bvs\s*code\b/gi, "VS Code"],
+    [/\bsql\s*server\b/gi, "SQL Server"],
+    [/\bpostgre\s*sql\b/gi, "PostgreSQL"],
+    [/\bmongo\s*db\b/gi, "MongoDB"],
+    [/\bentity\s*framework\b/gi, "Entity Framework"],
+    [/\basp\s*dot\s*net\b/gi, "ASP.NET"],
+    [/\bweb\s*api\b/gi, "Web API"],
+    [/\bci\s*cd\b/gi, "CI/CD"],
+    [/\bgit\s*hub\b/gi, "GitHub"],
+  ];
+  for (const [pattern, value] of replacements) {
+    text = text.replace(pattern, value);
+  }
+  return text.replace(/\s+/g, " ").trim();
+}
+
 export function createRecognition(handlers: {
   onResult: (transcript: string, isFinal: boolean) => void;
   onError?: (message: string) => void;
   onEnd?: () => void;
+  /** When true, restart after Chrome stops on silence (keeps listening). */
+  autoRestart?: boolean;
 }) {
   const Ctor = getRecognitionCtor();
   if (!Ctor) return null;
@@ -84,6 +117,32 @@ export function createRecognition(handlers: {
   recognition.continuous = true;
   recognition.interimResults = true;
   recognition.lang = "en-US";
+  recognition.maxAlternatives = 3;
+
+  // Bias toward common stack terms when the engine supports grammars.
+  try {
+    const w = window as Window & {
+      SpeechGrammarList?: new () => {
+        addFromString: (s: string, weight?: number) => void;
+      };
+      webkitSpeechGrammarList?: new () => {
+        addFromString: (s: string, weight?: number) => void;
+      };
+    };
+    const GrammarCtor = w.SpeechGrammarList ?? w.webkitSpeechGrammarList;
+    if (GrammarCtor) {
+      const list = new GrammarCtor();
+      list.addFromString(
+        "#JSGF V1.0; grammar tech; public <tech> = .NET | C# | TypeScript | JavaScript | React | Node.js | ASP.NET | Entity Framework | SQL Server | PostgreSQL | MongoDB | GitHub | CI/CD ;",
+        1,
+      );
+      recognition.grammars = list;
+    }
+  } catch {
+    // Grammar list is optional / unsupported in some browsers.
+  }
+
+  let intentionalStop = false;
 
   recognition.onresult = (event) => {
     let interim = "";
@@ -94,13 +153,39 @@ export function createRecognition(handlers: {
       if (result.isFinal) finalText += `${piece} `;
       else interim += piece;
     }
-    if (finalText) handlers.onResult(finalText.trim(), true);
-    if (interim) handlers.onResult(interim.trim(), false);
+    if (finalText) {
+      handlers.onResult(normalizeTranscript(finalText), true);
+    }
+    if (interim) {
+      handlers.onResult(normalizeTranscript(interim), false);
+    }
   };
   recognition.onerror = (event) => {
+    // no-speech / aborted are normal while waiting; keep listening if possible.
+    if (event.error === "no-speech" || event.error === "aborted") return;
     handlers.onError?.(event.error);
   };
-  recognition.onend = () => handlers.onEnd?.();
+  recognition.onend = () => {
+    handlers.onEnd?.();
+    if (!intentionalStop && handlers.autoRestart !== false) {
+      try {
+        recognition.start();
+      } catch {
+        // Already started or not allowed.
+      }
+    }
+  };
+
+  const originalStop = recognition.stop.bind(recognition);
+  const originalAbort = recognition.abort.bind(recognition);
+  recognition.stop = () => {
+    intentionalStop = true;
+    originalStop();
+  };
+  recognition.abort = () => {
+    intentionalStop = true;
+    originalAbort();
+  };
 
   return recognition;
 }

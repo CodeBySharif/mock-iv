@@ -4,6 +4,11 @@ import { ApplicantVideoTile } from "@/features/session/ApplicantVideoTile";
 import { ParticipantTile } from "@/features/session/ParticipantTile";
 import { QuestionPanel } from "@/features/session/QuestionPanel";
 import { SessionControls } from "@/features/session/SessionControls";
+import {
+  recordingFileNameBase,
+  startSessionRecorder,
+  type SessionRecorderHandle,
+} from "@/features/session/session-recorder";
 import { TranscriptPanel } from "@/features/session/TranscriptPanel";
 import {
   createRecognition,
@@ -11,7 +16,7 @@ import {
   speakText,
   stopSpeaking,
 } from "@/features/speech/browser-speech";
-import { loadSession, loadTurns } from "@/features/report/storage";
+import { loadSession, loadTurns, saveSession } from "@/features/report/storage";
 import { useMediaStore } from "@/stores/media-store";
 import { useSessionStore } from "@/stores/session-store";
 import { useRouter } from "next/navigation";
@@ -25,8 +30,11 @@ export function SessionRoom({ sessionId }: SessionRoomProps) {
   const router = useRouter();
   const recognitionRef = useRef<ReturnType<typeof createRecognition>>(null);
   const finalBufferRef = useRef("");
+  const recorderRef = useRef<SessionRecorderHandle | null>(null);
   const [ready, setReady] = useState(false);
   const [confirmLeave, setConfirmLeave] = useState(false);
+  const [screenRecording, setScreenRecording] = useState(false);
+  const [recordError, setRecordError] = useState<string | null>(null);
   const [liveSpeaker, setLiveSpeaker] = useState<"hr" | "technical" | null>(
     null,
   );
@@ -96,6 +104,72 @@ export function SessionRoom({ sessionId }: SessionRoomProps) {
     }
     void boot();
   }, [hydrateSession, requestMedia, sessionId]);
+
+  useEffect(() => {
+    if (!ready) return;
+    const session = useSessionStore.getState().session;
+    if (!session?.recordSession || recorderRef.current) return;
+
+    let cancelled = false;
+
+    async function beginRecord() {
+      try {
+        const fileNameBase = recordingFileNameBase(sessionId);
+        const handle = await startSessionRecorder({
+          sessionId,
+          micStream: useMediaStore.getState().stream,
+          fileNameBase,
+        });
+        if (cancelled) {
+          await handle.stop();
+          return;
+        }
+        recorderRef.current = handle;
+        setScreenRecording(true);
+        setRecordError(null);
+        const current = useSessionStore.getState().session;
+        if (current) {
+          const updated = {
+            ...current,
+            recordingFileName: fileNameBase,
+          };
+          useSessionStore.setState({ session: updated });
+          saveSession(updated);
+        }
+      } catch (e) {
+        if (cancelled) return;
+        setScreenRecording(false);
+        setRecordError(
+          e instanceof Error
+            ? e.message
+            : "Screen recording was blocked or cancelled.",
+        );
+      }
+    }
+
+    void beginRecord();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [ready, sessionId]);
+
+  useEffect(() => {
+    return () => {
+      const handle = recorderRef.current;
+      recorderRef.current = null;
+      if (handle?.isRecording()) {
+        void handle.stop();
+      }
+    };
+  }, []);
+
+  async function stopScreenRecording() {
+    const handle = recorderRef.current;
+    recorderRef.current = null;
+    setScreenRecording(false);
+    if (handle) await handle.stop();
+  }
 
   useEffect(() => {
     if (!ready || phase !== "greeting") return;
@@ -311,8 +385,7 @@ export function SessionRoom({ sessionId }: SessionRoomProps) {
         if (nextTurn) return;
         const result = goNext();
         if (result === "complete") {
-          stopMedia();
-          router.push(`/report/${sessionId}`);
+          void finishAndLeave();
         } else {
           markFeedbackReady();
         }
@@ -322,6 +395,12 @@ export function SessionRoom({ sessionId }: SessionRoomProps) {
         markFeedbackReady();
       },
     });
+  }
+
+  async function finishAndLeave() {
+    await stopScreenRecording();
+    stopMedia();
+    router.push(`/report/${sessionId}`);
   }
 
   function handleToggleTalk() {
@@ -346,8 +425,7 @@ export function SessionRoom({ sessionId }: SessionRoomProps) {
     stopRecognition();
     const result = skipTurn();
     if (result === "complete") {
-      stopMedia();
-      router.push(`/report/${sessionId}`);
+      void finishAndLeave();
     }
   }
 
@@ -372,9 +450,8 @@ export function SessionRoom({ sessionId }: SessionRoomProps) {
     setLiveSpeaker(null);
     stopRecognition();
     abortSession();
-    stopMedia();
     setConfirmLeave(false);
-    router.push(`/report/${sessionId}`);
+    void finishAndLeave();
   }
 
   if (!ready || !session) {
@@ -418,22 +495,40 @@ export function SessionRoom({ sessionId }: SessionRoomProps) {
   return (
     <div className="flex h-dvh max-h-dvh flex-col overflow-hidden bg-meet-bg text-meet-text">
       <header className="flex shrink-0 items-center justify-between gap-4 border-b border-meet-border px-3 py-2 sm:px-5">
-        <div>
-          <p className="text-sm font-medium text-meet-text">Mock Interview</p>
+        <div className="min-w-0">
+          <p className="truncate text-sm font-medium text-meet-text">
+            {session.roleTitle || "Mock Interview"}
+          </p>
           <p className="text-xs text-meet-muted capitalize">
             {session.level}
+            {session.questionSource === "prep" ? " · prep pack" : ""}
             {session.durationMinutes ? ` · ${session.durationMinutes} min plan` : ""}
             {phase === "greeting" ? " · Opening" : ` · Q${currentIndex + 1}/${turns.length}`}
           </p>
         </div>
-        <button
-          type="button"
-          onClick={() => setConfirmLeave(true)}
-          className="rounded-[8px] bg-record px-3 py-1.5 text-sm font-medium text-white"
-        >
-          Leave
-        </button>
+        <div className="flex items-center gap-2">
+          {screenRecording ? (
+            <span className="flex items-center gap-1.5 rounded-[8px] border border-record/40 bg-record/10 px-2.5 py-1 text-xs font-medium text-record">
+              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-record" />
+              Recording
+            </span>
+          ) : null}
+          <button
+            type="button"
+            onClick={() => setConfirmLeave(true)}
+            className="rounded-[8px] bg-record px-3 py-1.5 text-sm font-medium text-white"
+          >
+            Leave
+          </button>
+        </div>
       </header>
+
+      {recordError ? (
+        <div className="shrink-0 border-b border-amber-500/30 bg-amber-500/10 px-3 py-1.5 text-xs text-amber-200 sm:px-5">
+          Screen record skipped: {recordError} Interview continues without a
+          video file.
+        </div>
+      ) : null}
 
       {sectionBanner ? (
         <div className="shrink-0 border-b border-brand/30 bg-brand/10 px-3 py-1.5 text-xs text-meet-text sm:px-5 sm:text-sm">
@@ -561,7 +656,11 @@ export function SessionRoom({ sessionId }: SessionRoomProps) {
               Leave interview?
             </h2>
             <p className="mt-2 text-sm text-meet-muted">
-              Completed answers will be saved to your report.
+              Completed answers will be saved to your report
+              {screenRecording
+                ? ", and the screen recording will download when you leave"
+                : ""}
+              .
             </p>
             <div className="mt-5 flex justify-end gap-2">
               <button

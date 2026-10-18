@@ -1,5 +1,8 @@
 "use client";
 
+import { setActivePackId } from "@/features/prep/clear-local-data";
+import { packOverviewHref } from "@/features/prep/prep-steps";
+import { loadPrepPack } from "@/features/prep/storage";
 import { downloadReportPdf } from "@/features/report/download-report-pdf";
 import {
   allocateReportSequence,
@@ -9,6 +12,7 @@ import {
   loadSession,
   loadTurns,
 } from "@/features/report/storage";
+import { loadSessionRecording } from "@/features/session/recording-store";
 import { SECTION_LABELS, type InterviewTurn } from "@/types/interview";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
@@ -44,11 +48,36 @@ export function ReportScreen({ sessionId }: ReportScreenProps) {
   const [report, setReport] = useState<SessionReport | null>(null);
   const [downloadName, setDownloadName] = useState<string | null>(null);
   const [downloading, setDownloading] = useState(false);
+  const [recordingUrl, setRecordingUrl] = useState<string | null>(null);
+  const [recordingName, setRecordingName] = useState<string | null>(null);
+  const [packTitle, setPackTitle] = useState<string | null>(null);
 
   useEffect(() => {
     const session = loadSession(sessionId);
     const turns = loadTurns(sessionId);
-    if (session) setReport(buildReport(session, turns));
+    if (session) {
+      setReport(buildReport(session, turns));
+      if (session.prepPackId) {
+        const pack = loadPrepPack(session.prepPackId);
+        if (pack) {
+          setPackTitle(`${pack.roleTitle} @ ${pack.companyName}`);
+        }
+      }
+    }
+
+    let objectUrl: string | null = null;
+    void loadSessionRecording(sessionId)
+      .then((row) => {
+        if (!row) return;
+        objectUrl = URL.createObjectURL(row.blob);
+        setRecordingUrl(objectUrl);
+        setRecordingName(row.fileName);
+      })
+      .catch(() => undefined);
+
+    return () => {
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
   }, [sessionId]);
 
   const groups = useMemo(
@@ -90,8 +119,8 @@ export function ReportScreen({ sessionId }: ReportScreenProps) {
   const date = formatReportDate(session.createdAt);
 
   return (
-    <div className="min-h-screen bg-meet-bg text-meet-text">
-      <header className="border-b border-meet-border bg-meet-surface">
+    <div className="flex h-dvh max-h-dvh flex-col overflow-hidden bg-meet-bg text-meet-text">
+      <header className="z-40 shrink-0 border-b border-meet-border bg-meet-surface">
         <div className="flex w-full flex-wrap items-center justify-between gap-3 px-4 py-4 sm:px-6 lg:px-8">
           <div>
             <p className="text-xs font-medium uppercase tracking-wide text-meet-muted">
@@ -109,11 +138,36 @@ export function ReportScreen({ sessionId }: ReportScreenProps) {
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
+            {session.prepPackId ? (
+              <>
+                <Link
+                  href={packOverviewHref(session.prepPackId)}
+                  onClick={() => setActivePackId(session.prepPackId!)}
+                  className="rounded-[8px] border border-meet-border bg-meet-bg px-4 py-2.5 text-sm font-medium text-meet-text"
+                >
+                  Pack overview
+                </Link>
+                <Link
+                  href="/prep/cheat-sheet"
+                  onClick={() => setActivePackId(session.prepPackId!)}
+                  className="rounded-[8px] bg-brand px-4 py-2.5 text-sm font-semibold text-brand-foreground"
+                >
+                  Build cheat sheet
+                </Link>
+                <Link
+                  href="/lobby"
+                  onClick={() => setActivePackId(session.prepPackId!)}
+                  className="rounded-[8px] border border-meet-border bg-meet-bg px-4 py-2.5 text-sm font-medium text-meet-text"
+                >
+                  Redo interview
+                </Link>
+              </>
+            ) : null}
             <button
               type="button"
               onClick={handleDownload}
               disabled={downloading}
-              className="rounded-[8px] bg-brand px-4 py-2.5 text-sm font-semibold text-brand-foreground disabled:opacity-60"
+              className="rounded-[8px] border border-meet-border bg-meet-bg px-4 py-2.5 text-sm font-medium text-meet-text disabled:opacity-60"
             >
               {downloading ? "Preparing PDF…" : "Download PDF"}
             </button>
@@ -121,15 +175,80 @@ export function ReportScreen({ sessionId }: ReportScreenProps) {
               href="/"
               className="rounded-[8px] border border-meet-border bg-meet-bg px-4 py-2.5 text-sm font-medium text-meet-text"
             >
-              Back to lobby
+              Home
             </Link>
           </div>
         </div>
       </header>
 
-      <div className="w-full px-4 py-6 sm:px-6 lg:px-8">
-        <section className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-5">
+      <div className="meet-scroll min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-6 sm:px-6 lg:px-8">
+        {session.prepPackId ? (
+          <div className="mb-6 rounded-[12px] border border-brand/30 bg-brand/10 px-4 py-3 text-sm text-meet-text">
+            Next step: generate a cheat sheet from this interview
+            {packTitle ? (
+              <>
+                {" "}
+                for <span className="font-medium">{packTitle}</span>
+              </>
+            ) : null}
+            .{" "}
+            <Link
+              href="/prep/cheat-sheet"
+              onClick={() => setActivePackId(session.prepPackId!)}
+              className="font-medium text-brand underline-offset-2 hover:underline"
+            >
+              Open cheat sheet →
+            </Link>
+          </div>
+        ) : (
+          <div className="mb-6 rounded-[12px] border border-meet-border bg-meet-surface px-4 py-3 text-sm text-meet-muted">
+            This was a classic-bank session (no prep pack). Cheat sheets need a
+            decode → predict pack — start one from the hub.
+          </div>
+        )}
+
+        {recordingUrl ? (
+          <section className="mb-6 rounded-[12px] border border-meet-border bg-meet-surface p-4">
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+              <h2 className="font-display text-base font-semibold">
+                Session recording
+              </h2>
+              {recordingName ? (
+                <a
+                  href={recordingUrl}
+                  download={recordingName}
+                  className="text-sm font-medium text-brand hover:underline"
+                >
+                  Download again
+                </a>
+              ) : null}
+            </div>
+            <video
+              src={recordingUrl}
+              controls
+              playsInline
+              className="max-h-[420px] w-full rounded-[8px] bg-black"
+            />
+            <p className="mt-2 text-xs text-meet-muted">
+              Scrub the timeline to review pacing and stutters. Prefer Chrome or
+              Edge if a downloaded file won’t open in another player.
+            </p>
+          </section>
+        ) : session.recordSession ? (
+          <p className="mb-6 text-sm text-meet-muted">
+            No in-browser recording found for this session (share may have been
+            cancelled, or this report is from before recording storage).
+          </p>
+        ) : null}
+
+        <section className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
           <SummaryStat label="Answers" value={String(summary.turnsCompleted)} />
+          <SummaryStat
+            label="Avg score"
+            value={
+              summary.avgScore != null ? `${summary.avgScore}/10` : "—"
+            }
+          />
           <SummaryStat
             label="Avg pace"
             value={summary.avgWpm ? `${summary.avgWpm} WPM` : "—"}
@@ -149,7 +268,6 @@ export function ReportScreen({ sessionId }: ReportScreenProps) {
                 .map((section) => SECTION_LABELS[section])
                 .join(", ") || "—"
             }
-            wide
           />
         </section>
 
@@ -168,8 +286,8 @@ export function ReportScreen({ sessionId }: ReportScreenProps) {
         )}
 
         <div className="mt-8 space-y-8">
-          {groups.map((group) => (
-            <section key={group.section}>
+          {groups.map((group, groupIndex) => (
+            <section key={`${group.section}-${groupIndex}`}>
               <div className="mb-3 flex items-baseline justify-between gap-3 border-b border-meet-border pb-2">
                 <h2 className="font-display text-lg font-semibold text-meet-text">
                   {SECTION_LABELS[group.section]}
@@ -218,6 +336,14 @@ export function ReportScreen({ sessionId }: ReportScreenProps) {
                         </p>
                         <div className="mt-3 flex flex-wrap gap-2 font-mono text-xs">
                           <MetricChip
+                            label="Score"
+                            value={
+                              typeof turn.score === "number"
+                                ? `${turn.score}/10`
+                                : "—"
+                            }
+                          />
+                          <MetricChip
                             label="Time"
                             value={formatClock(turn.metrics?.durationMs)}
                           />
@@ -246,6 +372,11 @@ export function ReportScreen({ sessionId }: ReportScreenProps) {
                             }
                           />
                         </div>
+                        {turn.scoreNote ? (
+                          <p className="mt-2 text-xs text-meet-muted">
+                            {turn.scoreNote}
+                          </p>
+                        ) : null}
 
                         {turn.acknowledgmentText ? (
                           <p className="mt-4 text-sm text-meet-muted">

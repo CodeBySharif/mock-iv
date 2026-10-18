@@ -95,7 +95,13 @@ Respect `prefers-reduced-motion`.
 
 ## Screens (must feel like this)
 
-### Lobby / pre-join
+### Prep hub (home)
+
+- Dark Meet canvas; step cards: Decode → Predict → Interview → Cheat sheet
+- Settings opens BYOK (Gemini + OpenRouter keys in localStorage only)
+- Past prep packs list; link to classic bank lobby
+
+### Lobby / pre-join (classic or after predict)
 
 - Full dark canvas; header above a **two-column equal-height** row
 - Left: device preview (camera feed, or mic-ready avatar in mic-only mode)
@@ -105,6 +111,7 @@ Respect `prefers-reduced-motion`.
 - Primary: **Start interview** pinned to the bottom of the settings panel
 - Past reports under the pair, full width
 - If Cam + mic fails, automatically fall back to mic-only when audio works
+- Link back to Prep hub
 
 ### Live session
 

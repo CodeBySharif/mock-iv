@@ -30,32 +30,36 @@ Keep folder conventions from the scaffold: `src/app`, `components`, `features`, 
 | Applicant speech → text (STT) | Web Speech API `SpeechRecognition` / `webkitSpeechRecognition` |
 | Fallback | Show message if unsupported; typed answer deferred post-MVP |
 
-## AI (OpenRouter)
+## AI (BYOK)
 
-| Use | Notes |
+| Use | Provider |
 | --- | --- |
-| Acknowledgments | Short spoken/written replies after answers |
-| Delivery coaching tips | From transcript + metrics (no correctness grade) |
-| Optional paraphrased questions | Same intent as seeded prompt |
+| Role decode (long CV + JD) | Gemini (user key via header) |
+| Predict / interview turns / cheat sheet | OpenRouter (user key via header) |
+| Legacy delivery coaching | OpenRouter (BYOK or env fallback) |
 
-Call OpenRouter only from **Next.js Route Handlers** so `OPENROUTER_API_KEY` never ships to the client.
+Keys live in browser `localStorage`. Route Handlers accept `X-Gemini-Key` / `X-OpenRouter-Key` and proxy; never persist keys in Postgres.
 
-## Persistence (MVP)
+## Persistence
 
-- Local-first: `localStorage` or IndexedDB for sessions/reports  
-- Later: SQLite/Postgres or hosted DB when accounts exist  
+- **Postgres (Neon) + Prisma** for prep packs, decode, predictions, interview messages, cheat sheets  
+- `practiceId` in localStorage owns history until real auth  
+- BYOK keys + practiceId stay in localStorage  
+- Classic session reports may still use localStorage during migration  
 
 ## Suggested feature modules
 
 ```text
 src/features/
+  prep/             # hub, decode, predict, cheat sheet
+  settings/         # BYOK modal
   lobby/
   media/
-  session/          # turn state machine
-  speech/           # STT + TTS wrappers
-  coaching/         # metrics + OpenRouter client calls via API
+  session/
+  speech/
+  coaching/
   report/
-  questions/        # load/seed banks
+  questions/
 ```
 
 ## Non-goals for stack (MVP)

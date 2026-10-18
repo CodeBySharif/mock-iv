@@ -63,6 +63,9 @@ export function buildReport(
     .map((t) => t.metrics?.wordsPerMinute)
     .filter((n): n is number => typeof n === "number" && n > 0);
   const fillers = answered.map((t) => t.metrics?.fillerCount ?? 0);
+  const scores = answered
+    .map((t) => t.score)
+    .filter((n): n is number => typeof n === "number" && n > 0);
   const sectionsCompleted = [
     ...new Set(answered.map((t) => t.section)),
   ];
@@ -76,9 +79,30 @@ export function buildReport(
         ? Math.round(wpms.reduce((a, b) => a + b, 0) / wpms.length)
         : undefined,
       totalFillers: fillers.reduce((a, b) => a + b, 0),
+      avgScore: scores.length
+        ? Math.round(
+            (scores.reduce((a, b) => a + b, 0) / scores.length) * 10,
+          ) / 10
+        : undefined,
       sectionsCompleted,
     },
   };
+}
+
+export function clearAllSessionsAndReports() {
+  if (!canUseStorage()) return;
+  const sessions = listSessions();
+  for (const session of sessions) {
+    localStorage.removeItem(TURNS_KEY(session.id));
+  }
+  localStorage.removeItem(SESSIONS_KEY);
+  localStorage.removeItem(ACTIVE_KEY);
+  const toRemove: string[] = [];
+  for (let i = 0; i < localStorage.length; i += 1) {
+    const key = localStorage.key(i);
+    if (key?.startsWith("mock-iv:report-seq:")) toRemove.push(key);
+  }
+  for (const key of toRemove) localStorage.removeItem(key);
 }
 
 export function formatReportDate(iso: string) {

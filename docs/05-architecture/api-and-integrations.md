@@ -4,12 +4,19 @@
 
 | Variable | Where | Purpose |
 | --- | --- | --- |
-| `OPENROUTER_API_KEY` | Server only | OpenRouter chat completions |
-| `OPENROUTER_MODEL` | Server | Default model id (configurable) |
-| `NEXT_PUBLIC_APP_NAME` | Client optional | Display name |
-| `NEXT_PUBLIC_API_BASE_URL` | Existing scaffold | Reserved; not required for MVP local flows |
+| `DATABASE_URL` | Server | Neon Postgres for Prisma |
+| `OPENROUTER_API_KEY` | Server optional | Fallback if no BYOK header |
+| `OPENROUTER_MODEL` | Server | Default model id |
+| `NEXT_PUBLIC_APP_URL` | Client/server | Referer for OpenRouter |
 
-Never expose `OPENROUTER_API_KEY` to the browser. Add to `.env.local` / `.env.example` when implementing.
+## BYOK headers
+
+| Header | Purpose |
+| --- | --- |
+| `X-Gemini-Key` | User Gemini key (decode) |
+| `X-OpenRouter-Key` | User OpenRouter key (predict / interview / sheet) |
+
+Keys are stored only in browser `localStorage` via Settings.
 
 ## Browser APIs (client)
 
@@ -21,7 +28,18 @@ Never expose `OPENROUTER_API_KEY` to the browser. Add to `.env.local` / `.env.ex
 
 Handle permission errors with UX from [user journeys](../01-product/user-journeys.md).
 
-## Next.js Route Handlers (suggested)
+## Prep Route Handlers
+
+### `POST /api/prep/extract-cv`
+PDF upload → extracted text.
+
+### `POST /api/prep/decode`
+Body: role, company, JD, CV text. Header: `X-Gemini-Key`. Returns structured decode JSON.
+
+### `POST /api/prep/predict` / `interview/turn` / `cheat-sheet`
+Planned next slices (OpenRouter BYOK).
+
+## Legacy coaching
 
 ### `POST /api/coaching/feedback`
 

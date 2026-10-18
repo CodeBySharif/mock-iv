@@ -1,5 +1,5 @@
-import { LobbyScreen } from "@/features/lobby/LobbyScreen";
+import { HomeScreen } from "@/features/home/HomeScreen";
 
 export default function HomePage() {
-  return <LobbyScreen />;
+  return <HomeScreen />;
 }

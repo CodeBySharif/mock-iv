@@ -1,0 +1,109 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model PracticeProfile {
+  id        String    @id
+  userId    String?
+  createdAt DateTime  @default(now())
+  packs     PrepPack[]
+}
+
+model PrepPack {
+  id          String   @id @default(cuid())
+  practiceId  String
+  practice    PracticeProfile @relation(fields: [practiceId], references: [id])
+  roleTitle   String
+  companyName String
+  jdText      String
+  cvText      String   @default("")
+  cvFileName  String?
+  status      String   @default("draft")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  decode      RoleDecode?
+  questions   PredictedQuestion[]
+  sessions    PrepInterviewSession[]
+  cheatSheet  CheatSheet?
+}
+
+model RoleDecode {
+  id        String   @id @default(cuid())
+  packId    String   @unique
+  pack      PrepPack @relation(fields: [packId], references: [id], onDelete: Cascade)
+  payload   Json
+  model     String?
+  createdAt DateTime @default(now())
+}
+
+model PredictedQuestion {
+  id             String   @id @default(cuid())
+  packId         String
+  pack           PrepPack @relation(fields: [packId], references: [id], onDelete: Cascade)
+  category       String
+  prompt         String
+  checking       String
+  fresherMistake String
+  strongAnswer   String
+  sortOrder      Int
+  selected       Boolean  @default(true)
+}
+
+model PrepInterviewSession {
+  id              String   @id @default(cuid())
+  packId          String
+  pack            PrepPack @relation(fields: [packId], references: [id], onDelete: Cascade)
+  durationMinutes Int
+  status          String   @default("active")
+  createdAt       DateTime @default(now())
+  endedAt         DateTime?
+  messages        InterviewMessage[]
+  scorecards      AnswerScorecard[]
+  roundSummaries  RoundSummary[]
+}
+
+model InterviewMessage {
+  id        String   @id @default(cuid())
+  sessionId String
+  session   PrepInterviewSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  round     String
+  role      String
+  text      String
+  sortOrder Int
+  createdAt DateTime @default(now())
+}
+
+model AnswerScorecard {
+  id              String   @id @default(cuid())
+  sessionId       String
+  session         PrepInterviewSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  messageId       String?
+  score           Int
+  weak            String
+  rehearsed       String
+  strongerVersion String
+  createdAt       DateTime @default(now())
+}
+
+model RoundSummary {
+  id        String   @id @default(cuid())
+  sessionId String
+  session   PrepInterviewSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  round     String
+  payload   Json
+  createdAt DateTime @default(now())
+}
+
+model CheatSheet {
+  id        String   @id @default(cuid())
+  packId    String   @unique
+  pack      PrepPack @relation(fields: [packId], references: [id], onDelete: Cascade)
+  payload   Json
+  model     String?
+  createdAt DateTime @default(now())
+}

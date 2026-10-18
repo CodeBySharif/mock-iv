@@ -39,6 +39,12 @@
   --border: #d5dde7;
 }
 
+html {
+  height: 100%;
+  color-scheme: dark;
+  background: var(--meet-bg);
+}
+
 html,
 body {
   min-height: 100%;
@@ -47,8 +53,8 @@ body {
 body {
   margin: 0;
   font-family: var(--font-sans);
-  background: var(--background);
-  color: var(--foreground);
+  background: var(--meet-bg);
+  color: var(--meet-text);
 }
 
 @keyframes speak-pulse {
@@ -84,4 +90,82 @@ body {
 :focus-visible {
   outline: 2px solid var(--brand);
   outline-offset: 2px;
+}
+
+/* Dark Meet scrollbars — viewport + every scroll pane */
+html,
+body,
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #5f6368 #202124;
+}
+
+html::-webkit-scrollbar,
+body::-webkit-scrollbar,
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+html::-webkit-scrollbar-track,
+body::-webkit-scrollbar-track,
+*::-webkit-scrollbar-track {
+  background: #202124;
+  border-radius: 0;
+}
+
+html::-webkit-scrollbar-thumb,
+body::-webkit-scrollbar-thumb,
+*::-webkit-scrollbar-thumb {
+  background: #5f6368;
+  border: 2px solid #202124;
+  border-radius: 999px;
+}
+
+html::-webkit-scrollbar-thumb:hover,
+body::-webkit-scrollbar-thumb:hover,
+*::-webkit-scrollbar-thumb:hover {
+  background: #9aa0a6;
+}
+
+html::-webkit-scrollbar-button,
+body::-webkit-scrollbar-button,
+*::-webkit-scrollbar-button {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+html::-webkit-scrollbar-corner,
+body::-webkit-scrollbar-corner,
+*::-webkit-scrollbar-corner {
+  background: #202124;
+}
+
+/* Prefer this class on intentional scroll panes (stable gutter) */
+.meet-scroll {
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+  scrollbar-color: #5f6368 #202124;
+}
+
+@keyframes meet-progress {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(250%);
+  }
+}
+
+.meet-progress-bar {
+  animation: meet-progress 1.4s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .meet-progress-bar {
+    animation: none;
+    width: 40%;
+    transform: none;
+  }
 }

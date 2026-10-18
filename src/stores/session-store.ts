@@ -5,7 +5,17 @@ import {
   buildHeuristicTips,
   computeDeliveryMetrics,
 } from "@/features/coaching/metrics";
+import { scoreAnswerHeuristic } from "@/features/coaching/score";
+import {
+  coachFieldsForPredicted,
+  predictedToSeeds,
+} from "@/features/questions/prep-questions";
 import { selectQuestions } from "@/features/questions/select-questions";
+import {
+  getActivePackId,
+  loadPrepPack,
+  savePrepPack,
+} from "@/features/prep/storage";
 import {
   buildReport,
   saveSession,
@@ -18,6 +28,7 @@ import {
   type InterviewLevel,
   type InterviewSession,
   type InterviewTurn,
+  type QuestionSource,
   type SectionId,
   type SessionDuration,
 } from "@/types/interview";
@@ -26,15 +37,34 @@ import { create } from "zustand";
 export type IntroBudget = 30 | 60 | 120;
 export type SessionPhase = "greeting" | "questions";
 
+export type CreateSessionInput = {
+  level: InterviewLevel;
+  duration: SessionDuration;
+  questionSource?: QuestionSource;
+  recordSession?: boolean;
+};
+
 function uid(prefix: string) {
   return `${prefix}_${Math.random().toString(36).slice(2, 10)}`;
 }
 
-function buildGreeting(level: InterviewLevel) {
-  return `Hi, thanks for joining today. I'm Alex from People Ops at ${DEFAULT_COMPANY.name}, and with me is Sam from Engineering. We'll keep this conversational: a short self-intro, some background questions from me, then Sam will dig into your projects and technical experience. This is a ${level}-level practice interview. Whenever you're ready after I finish, we'll start with your introduction.`;
+function buildGreeting(
+  level: InterviewLevel,
+  companyName?: string,
+  roleTitle?: string,
+) {
+  const company = companyName?.trim() || DEFAULT_COMPANY.name;
+  const roleBit = roleTitle?.trim()
+    ? ` for the ${roleTitle.trim()} role`
+    : "";
+  return `Hi, thanks for joining today. I'm Alex from People Ops at ${company}, and with me is Sam from Engineering. We'll keep this conversational: a short self-intro, some background questions from me, then Sam will dig into your projects and technical experience. This is a ${level}-level practice interview${roleBit}. Whenever you're ready after I finish, we'll start with your introduction.`;
 }
 
-function buildIntroTurn(sessionId: string, budget: IntroBudget): InterviewTurn {
+function buildIntroTurn(
+  sessionId: string,
+  budget: IntroBudget,
+  script?: string,
+): InterviewTurn {
   return {
     id: uid("turn"),
     sessionId,
@@ -44,7 +74,12 @@ function buildIntroTurn(sessionId: string, budget: IntroBudget): InterviewTurn {
     questionId: `intro-timed-${budget}`,
     questionText: `Please introduce yourself. Aim for about ${
       budget === 30 ? "30 seconds" : budget === 60 ? "1 minute" : "2 minutes"
-    }. Cover who you are, what you work on, and the kinds of problems you enjoy solving.`,
+    }. Use your practiced script for this length — you can read it from the Answer tab.`,
+    checking:
+      "A confident, practiced self-intro that fits the timer and sounds like you.",
+    fresherMistake:
+      "Improvising a brand-new story every time, or reading so fast you rush past the result.",
+    strongAnswer: script?.trim() || undefined,
     status: "asking",
   };
 }
@@ -61,7 +96,7 @@ type SessionState = {
   introBudget: IntroBudget;
   sectionBanner: string | null;
   speechError: string | null;
-  createSession: (level: InterviewLevel, duration: SessionDuration) => string;
+  createSession: (input: CreateSessionInput) => string;
   hydrateSession: (session: InterviewSession, turns: InterviewTurn[]) => void;
   getCurrentTurn: () => InterviewTurn | null;
   finishGreeting: () => void;
@@ -123,27 +158,88 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   sectionBanner: null,
   speechError: null,
 
-  createSession: (level, duration) => {
+  createSession: (input) => {
+    const duration = input.duration;
     const sessionId = uid("sess");
-    const qaQuestions = selectQuestions(level, duration).filter(
-      (q) => q.section !== "introduction",
-    );
     const introBudget: IntroBudget = 60;
-    const intro = buildIntroTurn(sessionId, introBudget);
+    // Intro script attached after pack load below.
+    let intro = buildIntroTurn(sessionId, introBudget);
 
-    const rest: InterviewTurn[] = qaQuestions.map((q, index) => ({
-      id: uid("turn"),
-      sessionId,
-      index: index + 1,
-      section: q.section,
-      interviewerRole: q.interviewerRole,
-      questionId: q.id,
-      questionText:
-        q.id.includes("hr-003") || q.prompt.toLowerCase().includes("know about us")
-          ? `${q.prompt} (We are ${DEFAULT_COMPANY.name}. ${DEFAULT_COMPANY.blurb})`
-          : q.prompt,
-      status: "pending",
-    }));
+    let questionSource: QuestionSource = input.questionSource ?? "classic";
+    let prepPackId: string | undefined;
+    let roleTitle: string | undefined;
+    let companyName: string | undefined;
+    let level: InterviewLevel = input.level;
+    let introScripts: InterviewSession["introScripts"] | undefined;
+    let rest: InterviewTurn[] = [];
+
+    if (questionSource === "prep") {
+      const packId = getActivePackId();
+      const pack = packId ? loadPrepPack(packId) : null;
+      const selected = pack?.questions?.filter((q) => q.selected) ?? [];
+      if (!pack || selected.length === 0) {
+        questionSource = "classic";
+      } else {
+        prepPackId = pack.id;
+        roleTitle = pack.roleTitle;
+        companyName = pack.companyName;
+        level = pack.experienceLevel ?? input.level;
+        introScripts = pack.introScripts;
+        const seeds = predictedToSeeds(selected, level, duration);
+        const byId = new Map(selected.map((q) => [q.id, q]));
+        rest = seeds.map((q, index) => {
+          const predicted = byId.get(q.id);
+          const coach = predicted
+            ? coachFieldsForPredicted(predicted)
+            : undefined;
+          return {
+            id: uid("turn"),
+            sessionId,
+            index: index + 1,
+            section: q.section,
+            interviewerRole: q.interviewerRole,
+            questionId: q.id,
+            questionText: q.prompt,
+            checking: coach?.checking,
+            fresherMistake: coach?.fresherMistake,
+            strongAnswer: coach?.strongAnswer,
+            status: "pending" as const,
+          };
+        });
+
+        const updated = {
+          ...pack,
+          status: "interviewed" as const,
+          updatedAt: new Date().toISOString(),
+        };
+        savePrepPack(updated);
+        intro = buildIntroTurn(
+          sessionId,
+          introBudget,
+          introScripts?.[introBudget],
+        );
+      }
+    }
+
+    if (questionSource === "classic") {
+      const qaQuestions = selectQuestions(level, duration).filter(
+        (q) => q.section !== "introduction",
+      );
+      rest = qaQuestions.map((q, index) => ({
+        id: uid("turn"),
+        sessionId,
+        index: index + 1,
+        section: q.section,
+        interviewerRole: q.interviewerRole,
+        questionId: q.id,
+        questionText:
+          q.id.includes("hr-003") ||
+          q.prompt.toLowerCase().includes("know about us")
+            ? `${q.prompt} (We are ${DEFAULT_COMPANY.name}. ${DEFAULT_COMPANY.blurb})`
+            : q.prompt,
+        status: "pending" as const,
+      }));
+    }
 
     const turns = [intro, ...rest].map((turn, index) => ({
       ...turn,
@@ -159,6 +255,12 @@ export const useSessionStore = create<SessionState>((set, get) => ({
       status: "active",
       companyProfileId: DEFAULT_COMPANY.id,
       turnIds: turns.map((t) => t.id),
+      questionSource,
+      prepPackId,
+      roleTitle,
+      companyName,
+      recordSession: input.recordSession === true,
+      introScripts,
     };
 
     persist(session, turns);
@@ -167,7 +269,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
       turns,
       currentIndex: 0,
       phase: "greeting",
-      greetingText: buildGreeting(level),
+      greetingText: buildGreeting(level, companyName, roleTitle),
       thinkSecondsLeft: THINK_SECONDS[level],
       answerSecondsLeft: null,
       answerElapsedSeconds: 0,
@@ -189,7 +291,11 @@ export const useSessionStore = create<SessionState>((set, get) => ({
       turns,
       currentIndex: safeIndex,
       phase: "questions",
-      greetingText: buildGreeting(session.level),
+      greetingText: buildGreeting(
+        session.level,
+        session.companyName,
+        session.roleTitle,
+      ),
       thinkSecondsLeft: THINK_SECONDS[session.level],
       answerSecondsLeft: null,
       answerElapsedSeconds: 0,
@@ -233,7 +339,8 @@ export const useSessionStore = create<SessionState>((set, get) => ({
       set({ introBudget: budget });
       return;
     }
-    const updatedIntro = buildIntroTurn(session.id, budget);
+    const script = session.introScripts?.[budget];
+    const updatedIntro = buildIntroTurn(session.id, budget, script);
     const next: InterviewTurn[] = turns.map((item, index) =>
       index === currentIndex
         ? {
@@ -360,6 +467,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
 
     let tips = buildHeuristicTips(finalText, metrics);
     let acknowledgment = pickAcknowledgment(turn.interviewerRole, currentIndex);
+    let scored = scoreAnswerHeuristic(finalText, metrics);
 
     if (turn.questionId.startsWith("intro-timed")) {
       acknowledgment =
@@ -377,15 +485,25 @@ export const useSessionStore = create<SessionState>((set, get) => ({
           level: session.level,
           section: turn.section,
           interviewerRole: turn.interviewerRole,
+          checking: turn.checking,
+          strongAnswer: turn.strongAnswer,
         }),
       });
       if (response.ok) {
         const data = (await response.json()) as {
           tips?: string[];
           acknowledgment?: string;
+          score?: number;
+          scoreNote?: string;
         };
         if (data.tips?.length) tips = data.tips;
         if (data.acknowledgment) acknowledgment = data.acknowledgment;
+        if (typeof data.score === "number") {
+          scored = {
+            score: data.score,
+            scoreNote: data.scoreNote || scored.scoreNote,
+          };
+        }
       }
     } catch {
       // heuristic fallback
@@ -402,6 +520,8 @@ export const useSessionStore = create<SessionState>((set, get) => ({
             metrics,
             tips,
             acknowledgmentText: acknowledgment,
+            score: scored.score,
+            scoreNote: scored.scoreNote,
           }
         : item,
     );

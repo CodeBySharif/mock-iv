@@ -1,0 +1,32 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: mockiv
+      POSTGRES_PASSWORD: mockiv
+      POSTGRES_DB: mockiv
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mockiv -d mockiv"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      DATABASE_URL: postgresql://mockiv:mockiv@db:5432/mockiv
+      # add other env vars your app needs
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  pgdata:
