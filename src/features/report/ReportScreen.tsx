@@ -13,6 +13,7 @@ import {
   loadTurns,
 } from "@/features/report/storage";
 import { loadSessionRecording } from "@/features/session/recording-store";
+import { ThemeToggle } from "@/features/theme/ThemeToggle";
 import { SECTION_LABELS, type InterviewTurn } from "@/types/interview";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
@@ -138,6 +139,7 @@ export function ReportScreen({ sessionId }: ReportScreenProps) {
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
+            <ThemeToggle />
             {session.prepPackId ? (
               <>
                 <Link

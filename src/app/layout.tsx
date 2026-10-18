@@ -25,12 +25,18 @@ type RootLayoutProps = {
   children: React.ReactNode;
 };
 
+const themeInitScript = `(function(){try{var t=localStorage.getItem("mock-iv:theme");if(t!=="light"&&t!=="dark")t="dark";var r=document.documentElement;r.classList.toggle("dark",t==="dark");r.style.colorScheme=t;}catch(e){document.documentElement.classList.add("dark");}})();`;
+
 export default function RootLayout({ children }: RootLayoutProps) {
   return (
     <html
       lang="en"
-      className={`${plexSans.variable} ${plexMono.variable} h-full antialiased`}
+      className={`${plexSans.variable} ${plexMono.variable} dark h-full antialiased`}
+      suppressHydrationWarning
     >
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
+      </head>
       <body className="flex min-h-full flex-col bg-meet-bg font-sans text-meet-text">
         <Providers>{children}</Providers>
       </body>

@@ -5,8 +5,7 @@ services:
       POSTGRES_USER: mockiv
       POSTGRES_PASSWORD: mockiv
       POSTGRES_DB: mockiv
-    ports:
-      - "5432:5432"
+    # Not published on the host — only web reaches it as hostname "db"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:

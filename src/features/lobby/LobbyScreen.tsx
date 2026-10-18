@@ -11,6 +11,7 @@ import {
 } from "@/features/prep/storage";
 import { listSessions } from "@/features/report/storage";
 import { ApplicantVideoTile } from "@/features/session/ApplicantVideoTile";
+import { ThemeToggle } from "@/features/theme/ThemeToggle";
 import { useMediaStore, type MediaMode } from "@/stores/media-store";
 import { useSessionStore } from "@/stores/session-store";
 import { useSettingsStore } from "@/stores/settings-store";
@@ -194,6 +195,7 @@ export function LobbyScreen() {
             </h1>
           </div>
           <div className="flex shrink-0 flex-wrap items-center gap-2">
+            <ThemeToggle />
             {pack ? (
               <>
                 <Link

@@ -1,11 +1,20 @@
 "use client";
 
+import { useThemeStore } from "@/stores/theme-store";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 type ProvidersProps = {
   children: React.ReactNode;
 };
+
+function ThemeHydrate({ children }: { children: React.ReactNode }) {
+  const hydrate = useThemeStore((s) => s.hydrate);
+  useEffect(() => {
+    hydrate();
+  }, [hydrate]);
+  return children;
+}
 
 export function Providers({ children }: ProvidersProps) {
   const [queryClient] = useState(
@@ -26,6 +35,8 @@ export function Providers({ children }: ProvidersProps) {
   );
 
   return (
-    <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    <QueryClientProvider client={queryClient}>
+      <ThemeHydrate>{children}</ThemeHydrate>
+    </QueryClientProvider>
   );
 }

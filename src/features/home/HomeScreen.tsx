@@ -3,6 +3,7 @@
 import { MasterCvButton } from "@/features/prep/MasterCvButton";
 import { MasterCvModal } from "@/features/prep/MasterCvModal";
 import { SettingsModal } from "@/features/settings/SettingsModal";
+import { ThemeToggle } from "@/features/theme/ThemeToggle";
 import { useSettingsStore } from "@/stores/settings-store";
 import Link from "next/link";
 import { useEffect, useState } from "react";
@@ -48,9 +49,9 @@ export function HomeScreen() {
               Home
             </h1>
           </div>
-          <div className="flex shrink-0 gap-2">
+          <div className="flex shrink-0 items-center gap-2">
+            <ThemeToggle />
             <MasterCvButton onClick={() => setMasterCvOpen(true)} />
-
             <button
               type="button"
               onClick={() => setSettingsOpen(true)}

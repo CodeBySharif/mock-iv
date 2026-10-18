@@ -4,6 +4,7 @@ import { MasterCvButton } from "@/features/prep/MasterCvButton";
 import { MasterCvModal } from "@/features/prep/MasterCvModal";
 import { packOverviewHref, type PrepStepId } from "@/features/prep/prep-steps";
 import { SettingsModal } from "@/features/settings/SettingsModal";
+import { ThemeToggle } from "@/features/theme/ThemeToggle";
 import type { PrepPack } from "@/types/prep";
 import Link from "next/link";
 import { useState } from "react";
@@ -95,8 +96,8 @@ export function PrepShell({
                 Pack
               </Link>
             ) : null}
+            <ThemeToggle />
             <MasterCvButton onClick={() => setMasterCvOpen(true)} />
-
             <button
               type="button"
               onClick={() => setSettingsOpen(true)}

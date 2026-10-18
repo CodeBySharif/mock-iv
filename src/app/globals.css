@@ -22,12 +22,13 @@
   --color-meet-muted: var(--meet-muted);
 }
 
+/* Light (normal) */
 :root {
-  --meet-bg: #111111;
-  --meet-surface: #202124;
-  --meet-border: #3c4043;
-  --meet-text: #e8eaed;
-  --meet-muted: #9aa0a6;
+  --meet-bg: #f0f4f8;
+  --meet-surface: #ffffff;
+  --meet-border: #d5dde7;
+  --meet-text: #1a2332;
+  --meet-muted: #5b6777;
   --brand: #0b8043;
   --brand-foreground: #ffffff;
   --record: #d93025;
@@ -37,11 +38,40 @@
   --muted: #5b6777;
   --surface: #ffffff;
   --border: #d5dde7;
+
+  --scrollbar-track: #e8eef4;
+  --scrollbar-thumb: #9aa8b8;
+  --scrollbar-thumb-hover: #7a8796;
+
+  color-scheme: light;
+}
+
+/* Dark */
+html.dark {
+  --meet-bg: #111111;
+  --meet-surface: #202124;
+  --meet-border: #3c4043;
+  --meet-text: #e8eaed;
+  --meet-muted: #9aa0a6;
+  --brand: #0b8043;
+  --brand-foreground: #ffffff;
+  --record: #d93025;
+
+  --background: #111111;
+  --foreground: #e8eaed;
+  --muted: #9aa0a6;
+  --surface: #202124;
+  --border: #3c4043;
+
+  --scrollbar-track: #202124;
+  --scrollbar-thumb: #5f6368;
+  --scrollbar-thumb-hover: #9aa0a6;
+
+  color-scheme: dark;
 }
 
 html {
   height: 100%;
-  color-scheme: dark;
   background: var(--meet-bg);
 }
 
@@ -92,12 +122,11 @@ body {
   outline-offset: 2px;
 }
 
-/* Dark Meet scrollbars — viewport + every scroll pane */
 html,
 body,
 * {
   scrollbar-width: thin;
-  scrollbar-color: #5f6368 #202124;
+  scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
 }
 
 html::-webkit-scrollbar,
@@ -110,22 +139,22 @@ body::-webkit-scrollbar,
 html::-webkit-scrollbar-track,
 body::-webkit-scrollbar-track,
 *::-webkit-scrollbar-track {
-  background: #202124;
+  background: var(--scrollbar-track);
   border-radius: 0;
 }
 
 html::-webkit-scrollbar-thumb,
 body::-webkit-scrollbar-thumb,
 *::-webkit-scrollbar-thumb {
-  background: #5f6368;
-  border: 2px solid #202124;
+  background: var(--scrollbar-thumb);
+  border: 2px solid var(--scrollbar-track);
   border-radius: 999px;
 }
 
 html::-webkit-scrollbar-thumb:hover,
 body::-webkit-scrollbar-thumb:hover,
 *::-webkit-scrollbar-thumb:hover {
-  background: #9aa0a6;
+  background: var(--scrollbar-thumb-hover);
 }
 
 html::-webkit-scrollbar-button,
@@ -139,14 +168,13 @@ body::-webkit-scrollbar-button,
 html::-webkit-scrollbar-corner,
 body::-webkit-scrollbar-corner,
 *::-webkit-scrollbar-corner {
-  background: #202124;
+  background: var(--scrollbar-track);
 }
 
-/* Prefer this class on intentional scroll panes (stable gutter) */
 .meet-scroll {
   scrollbar-gutter: stable;
   scrollbar-width: thin;
-  scrollbar-color: #5f6368 #202124;
+  scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
 }
 
 @keyframes meet-progress {
