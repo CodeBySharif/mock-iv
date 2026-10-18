@@ -49,6 +49,7 @@ export function DecodeScreen() {
   const [decode, setDecode] = useState<RoleDecodePayload | null>(null);
   const [busy, setBusy] = useState<"idle" | "pdf" | "decode">("idle");
   const [error, setError] = useState<string | null>(null);
+  const [note, setNote] = useState<string | null>(null);
 
   useEffect(() => {
     hydrate();
@@ -116,6 +117,7 @@ export function DecodeScreen() {
     }
     setBusy("decode");
     setError(null);
+    setNote(null);
     try {
       const res = await fetch("/api/prep/decode", {
         method: "POST",
@@ -163,7 +165,7 @@ export function DecodeScreen() {
             apiKey: key,
           });
         } catch (introErr) {
-          setUrlNote(
+          setNote(
             introErr instanceof Error
               ? `Decode saved, but intros failed: ${introErr.message}. Open pack overview to regenerate.`
               : data.introError ||
@@ -196,7 +198,7 @@ export function DecodeScreen() {
       setStep("results");
       window.scrollTo({ top: 0, behavior: "smooth" });
       if (introScripts) {
-        setUrlNote(
+        setNote(
           "Decode + practice intros ready (30 sec, 1 min, 2 min) — they’ll appear in the interview.",
         );
       }
@@ -330,10 +332,20 @@ export function DecodeScreen() {
                 {error}
               </p>
             ) : null}
+            {note ? (
+              <p className="text-sm text-brand" role="status">
+                {note}
+              </p>
+            ) : null}
           </div>
         </section>
       ) : (
         <section className="rounded-[12px] border border-meet-border bg-meet-surface p-4 pb-28 sm:p-5 sm:pb-28">
+          {note ? (
+            <p className="mb-4 text-sm text-brand" role="status">
+              {note}
+            </p>
+          ) : null}
           {!decode ? (
             <p className="text-sm text-meet-muted">No briefing yet.</p>
           ) : (
